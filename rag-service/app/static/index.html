@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPT Compass</title>
+<meta name="description" content="Ask about F-1, OPT and STEM OPT rules and get answers cited to 8 CFR 214.2(f) and the 2016 STEM OPT rule.">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1>OPT Compass</h1>
+    <p class="tagline">Ask about F-1, OPT and STEM OPT rules. Every answer cites the regulation text it came from.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="notice" role="note">
+    General information from public regulations, <strong>not legal advice</strong>. For your own case, ask your school's DSO or an immigration attorney.
+    Please don't type personal details such as names, receipt numbers or A-numbers.
+  </p>
+
+  <section id="chat" class="chat" aria-live="polite" aria-label="Conversation">
+    <div id="intro" class="intro">
+      <p>Try a question:</p>
+      <div class="chips" id="chips"></div>
+    </div>
+  </section>
+
+  <form id="form" class="composer" autocomplete="off">
+    <label for="question" class="sr">Your question</label>
+    <textarea id="question" rows="2" maxlength="500" placeholder="e.g. How many days of unemployment are allowed during OPT?"></textarea>
+    <div class="row">
+      <span id="count" class="count">0 / 500</span>
+      <button type="button" id="stop" class="secondary" hidden>Stop</button>
+      <button type="submit" id="send">Ask</button>
+    </div>
+  </form>
+</main>
+
+<footer class="wrap foot">
+  <p>
+    Sources: 8 CFR 214.2(f) (current eCFR text, labelled <em>Regulation</em>) and the preamble to the 2016 STEM OPT final rule, 81 FR 13040 (labelled <em>Commentary</em>; it can describe earlier or proposed text).
+    Answers are written by a free-tier Gemini model; Google may use free-tier prompts to improve its products. It can be wrong or say it doesn't know. Check the cited text.
+  </p>
+  <p>
+    This site counts visits and questions (no cookies, no third-party scripts, no question text or IP address stored).
+    Code and evaluation numbers: <a href="https://github.com/ankush1699/opt-compass" rel="noopener noreferrer">github.com/ankush1699/opt-compass</a>.
+  </p>
+</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

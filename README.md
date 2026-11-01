@@ -23,6 +23,7 @@ the current text of **8 CFR 214.2(f)** (eCFR API) and the **STEM OPT final rule,
 | Langfuse tracing (self-hosted) | built and tested for retrieval and rerank spans; generation token and cost recording verified only against a fake model reply, not a live traced run |
 | MCP server (`search_regulations`, `get_section`, `ask`) | built and tested; run end to end over stdio with the official MCP client (transcript below); `search_regulations` and `ask` also used from Claude Code 2.1.316 (session notes in `rag-service/examples/`); not tried in Claude Desktop, `get_section` not exercised there |
 | LangGraph agent with step limit and refusal path | built and tested; one live run on 10 multi-part questions and 8 refusal probes (below); faithfulness of its answers not yet judged |
+| Public chat page (`/`), its own limited endpoint (`/demo/ask`) and own-site analytics (`/stats`) | built and tested (22 unit tests); used live on localhost on 2026-11-01 (3 real questions through Gemini, the Stats endpoint against the real database, error paths with mocked responses in the browser, a phone-width dark-mode view); not deployed, never load-tested |
 | Dockerfiles, CI, AWS deployment | planned (M3) |
 
 ## What works today
@@ -161,6 +162,22 @@ Every `/ask` writes one JSON line to stdout: key *name* (never the secret), stat
 
 Limits, stated plainly: the rate limiter is in memory (one process; counts reset on restart; rejected keys do not use up anyone's allowance). All requests share one database connection. There is no per-key spend cap. Streaming through Gemini is real token streaming (`streamGenerateContent`), retried only before the first byte; Gemini's free tier is slow and flaky, and one live non-streaming call timed out (the gateway now returns 502 for that).
 
+## Public chat page and analytics
+
+`app/static/` (plain HTML, CSS and JS, no framework, no build step) is served at `/` when `DEMO_ENABLED=1`; it is off by default. It streams from `POST /demo/ask`, which needs no API key, so it has its own guards in `app/demo.py`: a per-visitor rate limit (default 4 a minute), one daily cap for everybody (default 150 answers per UTC day, then a message saying it resets at midnight UTC) and a cap on answers generated at once (default 2; further visitors are told to retry). All three live in memory, so they reset on restart and apply per process.
+
+What the page does when things go wrong, each checked by a unit test or by mocked responses in the browser: over the rate limit or daily cap or busy (plain messages, "Try again" button), Gemini quota exhausted or failing (a generic message, never the provider's own text, with the retrieved passages still shown), retrieval failing, the connection dropping mid-answer (partial text kept, message shown), the server unreachable, a request that takes over 120 s, the Stop button, and an answer that abstains (shown with a note). Answer text is built from DOM text nodes (no `innerHTML`), source links are only followed if they are `https://`, and the page is served with a strict Content-Security-Policy.
+
+```bash
+cd rag-service
+DEMO_ENABLED=1 STATS_KEY=<a secret> .venv/bin/python -m uvicorn app.main:app --port 8000   # then open http://localhost:8000/
+curl -H "X-Stats-Key: <the same secret>" "http://localhost:8000/stats?days=30"
+```
+
+**Analytics**, for the owner only. The `events` table (created on first use in the same Postgres) counts page views, distinct visitors, questions, answered, abstained, errors, visitors turned away by a limit, average latency and tokens, per UTC day. It stores no cookies, no question or answer text (only the question's length), no IP address and no third-party script. A visitor is a salted hash of IP, browser string and the UTC day, so the same person looks like a new visitor each day and cannot be looked up. Requests with no browser string or an obvious bot or monitor string are counted separately as bot views. `/stats` is refused unless `STATS_KEY` is set. A failed analytics write is logged and ignored; it never breaks a page or an answer (unit tested).
+
+Limits: this is one process with in-memory guards, so running two copies doubles every cap. Behind a proxy set `TRUST_PROXY_HEADERS=1` so the visitor address is the proxy's last `X-Forwarded-For` entry; without it every visitor behind the proxy would share one address. Free-tier Gemini prompts may be used by Google, which the page says. The page has not been tried in a real mobile browser or screen reader (only an emulated phone width and keyboard checks of the markup).
+
 ## MCP server
 
 `app/mcp_server.py` uses the official Python SDK (`mcp` 2.3.0, `MCPServer`) and speaks stdio, so a client starts it as a subprocess. Tools:
@@ -275,4 +292,4 @@ Configuration is environment variables; see `.env.example`. Never commit `.env`.
 | M1 | retrieval slice and retrieval eval | built and tested |
 | M1.5 | answer-quality eval, judge validation, Langfuse tracing, then retrieval and prompt fixes | built and tested; fixes partly re-evaluated |
 | M2 | FastAPI gateway (SSE streaming, API-key auth, rate limit, cost per request), MCP server, LangGraph agent with refusal path | built and tested; agent vs single-shot measured on 10 questions, faithfulness judge step not yet run |
-| M3 | Dockerfiles, GitHub Actions CI with a retrieval-eval gate, AWS deployment | planned |
+| M3 | public chat page and analytics (built, above), Dockerfiles, GitHub Actions CI with a retrieval-eval gate, AWS deployment | page built and tested locally; the rest planned |
