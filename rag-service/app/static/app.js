@@ -4,6 +4,8 @@ const EXAMPLES = [
   "How many days of unemployment are allowed during OPT?",
   "Does my OPT end if I transfer schools?",
   "When must I report a new employer on STEM OPT?",
+  "What is the cap-gap extension?",
+  "How early can I apply for post-completion OPT?",
 ];
 const MIN_CHARS = 3;
 const MAX_CHARS = 500;
@@ -28,8 +30,90 @@ function el(tag, className, text) {
 }
 
 function scrollDown() {
-  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  chat.scrollTo({ top: chat.scrollHeight });
 }
+
+// ---- options (kept in this browser only, if it lets us) ----
+const root = document.documentElement;
+const optSources = document.getElementById("opt-sources");
+const optLarge = document.getElementById("opt-large");
+const options = document.getElementById("options");
+
+function store(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private mode or blocked storage: the option still applies for this visit */
+  }
+}
+
+function recall(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function applyTheme(theme) {
+  if (theme === "light" || theme === "dark") root.setAttribute("data-theme", theme);
+  else root.removeAttribute("data-theme");
+}
+
+function applyLarge(on) {
+  if (on) root.setAttribute("data-large", "1");
+  else root.removeAttribute("data-large");
+}
+
+const savedTheme = recall("theme") || "system";
+applyTheme(savedTheme);
+for (const radio of document.querySelectorAll('input[name="theme"]')) {
+  radio.checked = radio.value === savedTheme;
+  radio.addEventListener("change", () => {
+    applyTheme(radio.value);
+    store("theme", radio.value);
+  });
+}
+optLarge.checked = recall("large") === "1";
+applyLarge(optLarge.checked);
+optLarge.addEventListener("change", () => {
+  applyLarge(optLarge.checked);
+  store("large", optLarge.checked ? "1" : "0");
+});
+optSources.checked = recall("sources-open") === "1";
+optSources.addEventListener("change", () => store("sources-open", optSources.checked ? "1" : "0"));
+
+document.getElementById("clear").addEventListener("click", () => {
+  if (controller) controller.abort("user");
+  for (const node of chat.querySelectorAll(".msg")) node.remove();
+  intro.hidden = false;
+  options.open = false;
+  box.focus();
+});
+
+// ---- header menu on narrow screens, and closing popovers ----
+const menuBtn = document.getElementById("menu-btn");
+const nav = document.getElementById("nav");
+menuBtn.addEventListener("click", () => {
+  const open = nav.classList.toggle("open");
+  menuBtn.setAttribute("aria-expanded", String(open));
+});
+nav.addEventListener("click", (event) => {
+  if (event.target.closest("a")) {
+    nav.classList.remove("open");
+    menuBtn.setAttribute("aria-expanded", "false");
+  }
+});
+document.addEventListener("click", (event) => {
+  if (options.open && !options.contains(event.target)) options.open = false;
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    options.open = false;
+    nav.classList.remove("open");
+    menuBtn.setAttribute("aria-expanded", "false");
+  }
+});
 
 function setBusy(busy) {
   sendBtn.disabled = busy;
@@ -244,9 +328,23 @@ async function ask(raw) {
           } else {
             textNode.textContent = "The model returned no answer. The closest passages are below.";
           }
-          if (sources.length) bubble.appendChild(renderSources(sources, !text || text.toLowerCase().includes(ABSTAIN)));
-          const line = usageLine(data.usage);
-          if (line) bubble.appendChild(el("p", "meta", line));
+          if (sources.length) bubble.appendChild(renderSources(sources, optSources.checked || !text || text.toLowerCase().includes(ABSTAIN)));
+          const meta = el("p", "meta", usageLine(data.usage));
+          if (text && navigator.clipboard) {
+            const copy = el("button", "secondary mini", "Copy answer");
+            copy.type = "button";
+            copy.addEventListener("click", async () => {
+              try {
+                await navigator.clipboard.writeText(text);
+                copy.textContent = "Copied";
+              } catch {
+                copy.textContent = "Copy failed";
+              }
+              setTimeout(() => (copy.textContent = "Copy answer"), 1800);
+            });
+            meta.appendChild(copy);
+          }
+          bubble.appendChild(meta);
         }
       }
     }
@@ -270,7 +368,12 @@ async function ask(raw) {
     setBusy(false);
     if (failed && !text) textNode.remove();
     box.focus();
-    scrollDown();
+    if (finished && !failed) {
+      // Show the start of the finished answer, not the end of its (long) source list.
+      chat.scrollTop += bubble.getBoundingClientRect().top - chat.getBoundingClientRect().top - 8;
+    } else {
+      scrollDown();
+    }
   }
 }
 

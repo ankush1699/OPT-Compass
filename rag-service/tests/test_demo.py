@@ -261,3 +261,41 @@ def test_analytics_swallows_errors_and_reconnects():
     analytics.record("v", "page_view", "ok")  # connects, creates the table (call 1), then inserts (call 2 raises)
     analytics.record("v", "page_view", "ok")  # reconnects after the failure
     assert analytics._conn is not None
+
+
+# ---- the page itself (the CSP forbids inline code, so the markup must not rely on it) ----
+def _html():
+    return open("app/static/index.html").read()
+
+
+def test_page_has_no_inline_script_style_or_event_handlers():
+    import re
+
+    html = _html()
+    assert not re.search(r"<script(?![^>]*\bsrc=)", html), "inline <script>"
+    assert "<style" not in html and not re.search(r"\sstyle=", html)
+    assert not re.search(r"\son[a-z]+\s*=", html), "inline event handler"
+
+
+def test_every_in_page_link_has_a_target():
+    import re
+
+    html = _html()
+    ids = set(re.findall(r'\bid="([^"]+)"', html))
+    for target in re.findall(r'href="#([^"]+)"', html):
+        assert target in ids, target
+
+
+def test_external_links_are_https_and_do_not_leak_the_opener():
+    import re
+
+    for tag in re.findall(r"<a [^>]*>", _html()):
+        href = re.search(r'href="([^"]+)"', tag).group(1)
+        if href.startswith("http"):
+            assert href.startswith("https://") and "noopener" in tag and "noreferrer" in tag, tag
+
+
+def test_logo_and_assets_are_served(demo):
+    logo = demo.get("/static/logo.svg")
+    assert logo.status_code == 200 and logo.headers["content-type"].startswith("image/svg+xml")
+    assert demo.get("/static/style.css").status_code == 200
