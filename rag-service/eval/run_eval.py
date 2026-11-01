@@ -7,7 +7,7 @@ Two strictness levels are reported:
   any      - the passage may come from any source (regulation or Federal Register commentary)
   primary  - questions flagged `in_regulation` must be answered by an eCFR chunk, the current law
 
-Usage: python -m eval.run_eval [--validate] [--heldout]   (--heldout: questions_heldout.jsonl, written after the
+Usage: python -m eval.run_eval [--validate] [--heldout] [--min-hit6 0.90]   (--heldout: questions_heldout.jsonl, written after the
 retrieval settings were tuned on questions.jsonl and never used to tune anything)   (--validate checks every phrase exists in the corpus)
 """
 import json
@@ -60,6 +60,13 @@ def evaluate(conn, questions: list[dict], mode: str) -> dict:
     return result
 
 
+def gate_threshold() -> float | None:
+    """--min-hit6 X: exit non-zero if the default (rerank) mode's any-source hit@6 is below X. Used by CI."""
+    if "--min-hit6" not in sys.argv:
+        return None
+    return float(sys.argv[sys.argv.index("--min-hit6") + 1])
+
+
 def main() -> None:
     conn = connect()
     questions = load()
@@ -79,6 +86,13 @@ def main() -> None:
                     print(f"{mode} / {level} misses:")
                     for m in r[f"{level} misses"]:
                         print("  -", m)
+    threshold = gate_threshold()
+    if threshold is not None:
+        got = report["rerank"]["any hit@6"]
+        verdict = "PASS" if got >= threshold else "FAIL"
+        print(f"\ngate: rerank any-source hit@6 = {got:.3f}, minimum {threshold:.3f}: {verdict}")
+        if got < threshold:
+            sys.exit(1)
 
 
 if __name__ == "__main__":

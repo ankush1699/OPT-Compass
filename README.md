@@ -24,7 +24,9 @@ the current text of **8 CFR 214.2(f)** (eCFR API) and the **STEM OPT final rule,
 | MCP server (`search_regulations`, `get_section`, `ask`) | built and tested; run end to end over stdio with the official MCP client (transcript below); `search_regulations` and `ask` also used from Claude Code 2.1.316 (session notes in `rag-service/examples/`); not tried in Claude Desktop, `get_section` not exercised there |
 | LangGraph agent with step limit and refusal path | built and tested; one live run on 10 multi-part questions and 8 refusal probes (below); faithfulness of its answers not yet judged |
 | Public chat page (`/`), its own limited endpoint (`/demo/ask`) and own-site analytics (`/stats`) | built and tested (26 tests); used live on localhost on 2026-11-01 (3 real questions through Gemini, the Stats endpoint against the real database, error paths with mocked responses in the browser, a phone-width dark-mode view); not deployed, never load-tested |
-| Dockerfiles, CI, AWS deployment | planned (M3) |
+| Dockerfile and `docker compose` for the service + database | built and tested locally: image builds, a fresh volume restores the 550-chunk snapshot and serves the page, `/ask` and a real Gemini answer (2026-11-01, Docker 29.6, linux/arm64 only) |
+| GitHub Actions CI (unit tests, retrieval-eval gate, Docker build and health check) | built, **not yet run on GitHub**; each step was run locally (tests, both eval gates, the compose stack) but not by Actions |
+| AWS deployment | planned (M3, option A: one small EC2 server running the same compose file) |
 
 ## What works today
 
@@ -255,6 +257,21 @@ Where both still fail:
 ## Sources and one deliberate limit
 
 uscis.gov and ice.gov return HTTP 403 to scripted requests. This project does not try to get around that. Pages from those sites can be added by saving them yourself into `data/manual/` (see the README there). Regulation citations are pinned to the top-level paragraph, e.g. `8 CFR 214.2(f)(10) Practical training`; the deeper outline levels ((ii), (E), ...) cannot be recovered reliably from the flat eCFR XML, so they stay in the quoted text and are never guessed into a citation.
+
+## Docker, the corpus snapshot and CI
+
+```bash
+docker compose up -d --build                 # database + service on http://localhost:8000
+DEMO_ENABLED=1 STATS_KEY=<secret> docker compose up -d    # also serve the public page and /stats
+```
+
+Settings are read from the repo-root `.env` (model, keys, `API_KEYS`); the database address is set by the compose file. `docker compose up -d db` still starts only the database for local development; it listens on 127.0.0.1 only. If port 8000 or 5433 is busy, set `API_PORT` or `DB_PORT`. The image is about 1.3 GB because the two ONNX models are downloaded at build time; it runs as a non-root user.
+
+**Corpus snapshot.** `rag-service/snapshot/chunks.jsonl.gz` (about 2 MB, 550 chunks with their embeddings as exact float32) is committed so that a new machine or CI job gets the same corpus without calling eCFR or the Federal Register or running the embedding model. The container loads it on first start when the table is empty (`python -m app.snapshot restore --if-empty`), and it refuses a snapshot made with a different embedding model or size. Regenerate it after a fresh ingest with `python -m app.snapshot dump snapshot/chunks.jsonl.gz`. The text comes from public government documents.
+
+**CI** (`.github/workflows/ci.yml`) has three jobs: the unit tests; a retrieval gate that loads the snapshot into a pgvector service container and fails the build if the default mode's any-source hit@6 drops below **0.90 on the 28-question dev set or below 0.80 on the 11-question held-out set**; and a job that builds the image, starts the stack and checks `/health` reports 550 chunks. The thresholds follow the current numbers (dev 27 of 28 = 0.964, held-out 10 of 11 = 0.909): the gate tolerates one extra miss on the dev set and one on the held-out set (26 of 28 passes, 25 fails; 9 of 11 passes, 8 fails). The gate checks the default mode only. Non-default modes (dense, hybrid) use an approximate index and moved by a few points between the original database and a freshly restored one (dense hit@6 0.89 vs 0.86, hybrid 0.86 vs 0.82), so they are not gated. Retrieval only is gated: answer quality needs a model key and a judge quota, so it stays a manual run.
+
+What was checked and what was not: the dev set gave 0.964 (the same single miss) in every run except one: on the Mac, in fresh restores on the Mac, and four times in the container; the held-out gate gave 0.909 on the Mac and in the container. One earlier container run, straight after the first restore, gave 0.929 on the dev set; I could not reproduce it, including right after a fresh restore, and I do not know the cause. The workflow has **not been run by GitHub Actions** (it needs a push), so the action versions, the model cache and the first run on an x86 runner are untested; a failure there is likely to be a setup detail, not a retrieval regression.
 
 ## Run it
 
