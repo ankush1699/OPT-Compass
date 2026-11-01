@@ -45,30 +45,35 @@
 
 <main>
   <section id="ask" class="ask" aria-label="Ask a question">
-    <div class="ask-head">
-      <h1>Ask about F-1, OPT and STEM OPT</h1>
-      <p>Answers come only from the regulation text and cite it. If the sources don't say, it tells you so.</p>
-    </div>
-    <p class="notice" role="note">
-      General information from public regulations, <strong>not legal advice</strong>. For your own case, ask your school's DSO or an immigration attorney.
-      Please don't type personal details such as names, receipt numbers or A-numbers.
-    </p>
-    <div id="chat" class="chat" aria-live="polite" aria-label="Conversation" tabindex="0">
-      <div id="intro" class="intro">
-        <p>Try a question:</p>
-        <div class="chips" id="chips"></div>
+    <div class="ask-inner">
+      <div class="ask-head">
+        <p class="eyebrow">F-1 &middot; OPT &middot; STEM OPT</p>
+        <h1>Get answers from the regulation itself</h1>
+        <p class="lede">Every answer cites the text of 8 CFR 214.2(f) and the 2016 STEM OPT rule. If the sources don't say, it tells you so.</p>
       </div>
-    </div>
-    <form id="form" class="composer" autocomplete="off">
-      <label for="question" class="sr">Your question</label>
-      <textarea id="question" rows="2" maxlength="500" placeholder="e.g. How many days of unemployment are allowed during OPT?"></textarea>
-      <div class="row">
-        <span id="count" class="count">0 / 500</span>
-        <button type="button" id="stop" class="secondary" hidden>Stop</button>
-        <button type="submit" id="send">Ask</button>
+      <div class="card">
+        <p class="notice" role="note">
+          <strong>Not legal advice.</strong> For your own case, ask your school's DSO or an immigration attorney.
+          Please don't type personal details such as names, receipt numbers or A-numbers.
+        </p>
+        <div id="chat" class="chat" aria-live="polite" aria-label="Conversation" tabindex="0">
+          <div id="intro" class="intro">
+            <p class="label">Try a question</p>
+            <div class="chips" id="chips"></div>
+          </div>
+        </div>
+        <form id="form" class="composer" autocomplete="off">
+          <label for="question" class="sr">Your question</label>
+          <textarea id="question" rows="2" maxlength="500" placeholder="Ask about OPT, STEM OPT or F-1 status…"></textarea>
+          <div class="row">
+            <span id="count" class="count">0 / 500</span>
+            <button type="button" id="stop" class="secondary" hidden>Stop</button>
+            <button type="submit" id="send">Ask</button>
+          </div>
+        </form>
       </div>
-    </form>
-    <a class="scroll-cue" href="#how">About this project &darr;</a>
+      <a class="scroll-cue" href="#how">How it works &darr;</a>
+    </div>
   </section>
 
   <section id="how" class="block">
