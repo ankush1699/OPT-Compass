@@ -35,3 +35,6 @@ data/raw/
 .DS_Store
 .venv
 .venv.nosync/
+
+# AWS deployment: resource ids and generated keys
+deploy/aws/.state/
