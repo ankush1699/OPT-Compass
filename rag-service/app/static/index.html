@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPT Compass</title>
+<meta name="description" content="Ask about F-1, OPT and STEM OPT rules and get answers cited to 8 CFR 214.2(f) and the 2016 STEM OPT rule.">
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<a class="skip" href="#ask">Skip to the chat</a>
+
+<header class="site">
+  <div class="bar">
+    <a class="brand" href="#ask" aria-label="OPT Compass, home">
+      <img src="/static/logo.svg" alt="" width="32" height="32">
+      <span>OPT Compass</span>
+    </a>
+    <button type="button" id="menu-btn" class="icon-btn menu-btn" aria-expanded="false" aria-controls="nav">Menu</button>
+    <nav id="nav" class="nav" aria-label="Main">
+      <a href="#ask">Ask</a>
+      <a href="#how">How it works</a>
+      <a href="#covers">What it covers</a>
+      <a href="#faq">FAQ</a>
+      <a href="#resources">Official sources</a>
+      <a href="#about">About</a>
+    </nav>
+    <details class="options" id="options">
+      <summary class="icon-btn">Options</summary>
+      <div class="panel">
+        <fieldset>
+          <legend>Theme</legend>
+          <label><input type="radio" name="theme" value="system" checked> Match my device</label>
+          <label><input type="radio" name="theme" value="light"> Light</label>
+          <label><input type="radio" name="theme" value="dark"> Dark</label>
+        </fieldset>
+        <label class="check"><input type="checkbox" id="opt-sources"> Open the source list under each answer</label>
+        <label class="check"><input type="checkbox" id="opt-large"> Larger text</label>
+        <button type="button" id="clear" class="secondary">Clear this conversation</button>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main>
+  <section id="ask" class="ask" aria-label="Ask a question">
+    <div class="ask-inner">
+      <div class="ask-head">
+        <p class="eyebrow">F-1 &middot; OPT &middot; STEM OPT</p>
+        <h1>Get answers from the regulation itself</h1>
+        <p class="lede">Every answer cites the text of 8 CFR 214.2(f) and the 2016 STEM OPT rule. If the sources don't say, it tells you so.</p>
+      </div>
+      <div class="card">
+        <p class="notice" role="note">
+          <strong>Not legal advice.</strong> For your own case, ask your school's DSO or an immigration attorney.
+          Please don't type personal details such as names, receipt numbers or A-numbers.
+        </p>
+        <div id="chat" class="chat" aria-live="polite" aria-label="Conversation" tabindex="0">
+          <div id="intro" class="intro">
+            <p class="label">Try a question</p>
+            <div class="chips" id="chips"></div>
+          </div>
+        </div>
+        <form id="form" class="composer" autocomplete="off">
+          <label for="question" class="sr">Your question</label>
+          <textarea id="question" rows="2" maxlength="500" placeholder="Ask about OPT, STEM OPT or F-1 status…"></textarea>
+          <div class="row">
+            <span id="count" class="count">0 / 500</span>
+            <button type="button" id="stop" class="secondary" hidden>Stop</button>
+            <button type="submit" id="send">Ask</button>
+          </div>
+        </form>
+      </div>
+      <a class="scroll-cue" href="#how">How it works &darr;</a>
+    </div>
+  </section>
+
+  <section id="how" class="block">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li>
+          <h3>1. Find</h3>
+          <p>Your question is turned into numbers that capture its meaning, and compared with 550 passages of 8 CFR 214.2(f) and the 2016 STEM OPT rule preamble. A second model then re-reads the best matches and keeps the six that fit your question most closely.</p>
+        </li>
+        <li>
+          <h3>2. Write</h3>
+          <p>Those six passages go to an AI model (Google Gemini, free tier) with strict instructions: use only these sources, put a numbered citation after every fact, and say "the indexed sources do not answer this" when they don't.</p>
+        </li>
+        <li>
+          <h3>3. Show the evidence</h3>
+          <p>Each citation links to the passage it came from, labelled <em>Regulation</em> (current law) or <em>Commentary</em> (the government's 2016 explanation, which can describe earlier or proposed text). When they disagree, the answer follows the regulation.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="covers" class="block alt">
+    <div class="wrap">
+      <h2>What it covers</h2>
+      <div class="two">
+        <div>
+          <h3>Covered</h3>
+          <ul>
+            <li>8 CFR 214.2(f): F-1 student rules, including OPT, STEM OPT, cap-gap, unemployment limits, reporting and transfers (eCFR text as of 2026-10-14)</li>
+            <li>The preamble to the 2016 STEM OPT final rule, 81 FR 13040: why the rules look the way they do</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Not covered</h3>
+          <ul>
+            <li>USCIS or SEVP policy guidance, forms instructions and fees</li>
+            <li>Other visas (H-1B, J-1, green cards), taxes and travel advice</li>
+            <li>Anything after the fetch date, and your own case: it can't tell you what you should do</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="block">
+    <div class="wrap">
+      <h2>Frequently asked questions</h2>
+      <div class="faq">
+        <details><summary>Is this legal advice?</summary><p>No. It explains what public regulations say. It can't judge your situation, predict a decision or tell you what to do. For that, talk to your school's designated school official (DSO) or an immigration attorney.</p></details>
+        <details><summary>Where do the answers come from?</summary><p>Only from two public documents: the current text of 8 CFR 214.2(f) on eCFR, and the preamble of the 2016 STEM OPT final rule in the Federal Register (81 FR 13040). Each answer shows the passages it used so you can read them yourself.</p></details>
+        <details><summary>How accurate is it?</summary><p>I measured it on small sets of my own questions, so treat these as rough. For 39 test questions, the passage with the answer was among the six shown for 37 of them. On 8 of 8 questions that the sources can't answer it declined to answer, and on 28 answerable questions it wrongly declined once. These are small samples and the answers can still be wrong, so check the cited text. The full method and the failures are in the project's README on GitHub.</p></details>
+        <details><summary>Why did it say "the indexed sources do not answer this"?</summary><p>That is on purpose: it would rather say nothing than guess. It happens when the question is outside the two documents above, or when the search didn't find the right passage. Try rephrasing, or spell out an abbreviation.</p></details>
+        <details><summary>How current is the data?</summary><p>The regulation text is eCFR as of 2026-10-14 and doesn't update by itself. The 2016 preamble is commentary from the time the rule was made and can describe text that has since changed, which is why passages are labelled.</p></details>
+        <details><summary>Does it remember my earlier questions?</summary><p>No. Each question is answered on its own, so include the details it needs (for example, "STEM OPT" rather than "it").</p></details>
+        <details><summary>What happens to my questions?</summary><p>They are sent to Google's Gemini model on its free tier, and Google may use free-tier prompts to improve its products, so don't include personal details. This site does not store your question or the answer. It only counts visits and questions (no cookies, no third-party trackers, no IP address stored; only the length of the question).</p></details>
+        <details><summary>Why is it sometimes slow, or says the limit was reached?</summary><p>It runs on a free model with a daily allowance, and the demo caps how many answers it gives per visitor and per day. If you see a limit message, try again in a minute or tomorrow (the day resets at midnight UTC).</p></details>
+        <details><summary>Is this an official government tool?</summary><p>No. It is an independent project and isn't affiliated with or endorsed by DHS, ICE, SEVP or USCIS.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section id="resources" class="block alt">
+    <div class="wrap">
+      <h2>Read the official sources</h2>
+      <ul class="links">
+        <li><a href="https://www.ecfr.gov/current/title-8/chapter-I/subchapter-B/part-214/section-214.2" target="_blank" rel="noopener noreferrer">8 CFR 214.2 on eCFR</a><span>The current regulation text, including paragraph (f) for F-1 students.</span></li>
+        <li><a href="https://www.federalregister.gov/documents/2016/03/11/2016-04828/improving-and-expanding-training-opportunities-for-f-1-nonimmigrant-students-with-stem-degrees-and" target="_blank" rel="noopener noreferrer">2016 STEM OPT final rule, 81 FR 13040</a><span>The Federal Register notice with the government's reasoning.</span></li>
+        <li><a href="https://studyinthestates.dhs.gov/" target="_blank" rel="noopener noreferrer">Study in the States (DHS)</a><span>The government's guidance site for international students and schools.</span></li>
+      </ul>
+      <p class="muted">Your DSO is the person who can act on your record in SEVIS, so they are always the first stop for your own case.</p>
+    </div>
+  </section>
+
+  <section id="about" class="block">
+    <div class="wrap">
+      <h2>About this project</h2>
+      <p>OPT Compass is an independent, open-source project by Ankush Chaudhary, built to show how to make an AI assistant answer from real documents, cite them, and admit when it doesn't know. Every number on this page comes from a test run recorded in the repository, including the cases where it fails.</p>
+      <h3>Built with</h3>
+      <ul class="tags">
+        <li>PostgreSQL + pgvector</li>
+        <li>BGE embeddings and a cross-encoder reranker</li>
+        <li>Google Gemini (free tier)</li>
+        <li>FastAPI with streaming answers</li>
+        <li>An MCP server and a LangGraph agent (separate from this page)</li>
+      </ul>
+      <p><a class="btn" href="https://github.com/ankush1699/opt-compass" target="_blank" rel="noopener noreferrer">View the code and test results on GitHub</a></p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <p>General information, not legal advice. Not affiliated with DHS, ICE, SEVP or USCIS. Answers are written by a free-tier Gemini model and can be wrong; check the cited text. Free-tier prompts may be used by Google.</p>
+    <p>This site counts visits and questions without cookies or third-party scripts, and does not store question text or IP addresses.</p>
+  </div>
+</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

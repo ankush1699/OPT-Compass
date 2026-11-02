@@ -1,0 +1,9 @@
+.venv
+.venv.nosync
+**/__pycache__
+.pytest_cache
+tests
+examples
+eval/results
+eval/manual
+*.md

@@ -21,9 +21,12 @@ the current text of **8 CFR 214.2(f)** (eCFR API) and the **STEM OPT final rule,
 | Judge validation by hand-labelling | built and tested; 18 claims labelled, results below |
 | Judge sensitivity probe (`eval/judge_probe.py`) | built and tested; one live run on 11 cases, results below |
 | Langfuse tracing (self-hosted) | built and tested for retrieval and rerank spans; generation token and cost recording verified only against a fake model reply, not a live traced run |
-| MCP server (`search_regulations`, `get_section`, `ask`) | built and tested; run end to end over stdio with the official MCP client (transcript below); not yet tried inside Claude Desktop or Claude Code |
+| MCP server (`search_regulations`, `get_section`, `ask`) | built and tested; run end to end over stdio with the official MCP client (transcript below); `search_regulations` and `ask` also used from Claude Code 2.1.316 (session notes in `rag-service/examples/`); not tried in Claude Desktop, `get_section` not exercised there |
 | LangGraph agent with step limit and refusal path | built and tested; one live run on 10 multi-part questions and 8 refusal probes (below); faithfulness of its answers not yet judged |
-| Dockerfiles, CI, AWS deployment | planned (M3) |
+| Public chat page (`/`), its own limited endpoint (`/demo/ask`) and own-site analytics (`/stats`) | built and tested (26 tests); used live on localhost on 2026-11-01 (3 real questions through Gemini, the Stats endpoint against the real database, error paths with mocked responses in the browser, a phone-width dark-mode view); not deployed, never load-tested |
+| Dockerfile and `docker compose` for the service + database | built and tested locally: image builds, a fresh volume restores the 550-chunk snapshot and serves the page, `/ask` and a real Gemini answer (2026-11-01, Docker 29.6, linux/arm64 only) |
+| GitHub Actions CI (unit tests, retrieval-eval gate, Docker build and health check) | built, **not yet run on GitHub**; each step was run locally (tests, both eval gates, the compose stack) but not by Actions |
+| AWS deployment | planned (M3, option A: one small EC2 server running the same compose file) |
 
 ## What works today
 
@@ -161,6 +164,22 @@ Every `/ask` writes one JSON line to stdout: key *name* (never the secret), stat
 
 Limits, stated plainly: the rate limiter is in memory (one process; counts reset on restart; rejected keys do not use up anyone's allowance). All requests share one database connection. There is no per-key spend cap. Streaming through Gemini is real token streaming (`streamGenerateContent`), retried only before the first byte; Gemini's free tier is slow and flaky, and one live non-streaming call timed out (the gateway now returns 502 for that).
 
+## Public chat page and analytics
+
+`app/static/` (plain HTML, CSS and JS, no framework, no build step) is served at `/` when `DEMO_ENABLED=1`; it is off by default. It is a small one-page site: a full-height chat under a sticky header (logo, navigation, an Options menu for light/dark/system theme, larger text, opening the source list by default, and clearing the conversation), then How it works, What it covers, an FAQ, links to the official sources, and About. The FAQ's accuracy figures are copied from the results above (37 of 39 test questions with the answer passage in the top six, 8 of 8 abstentions, 1 false abstention in 28), not measured separately. It streams from `POST /demo/ask`, which needs no API key, so it has its own guards in `app/demo.py`: a per-visitor rate limit (default 4 a minute), one daily cap for everybody (default 150 answers per UTC day, then a message saying it resets at midnight UTC) and a cap on answers generated at once (default 2; further visitors are told to retry). All three live in memory, so they reset on restart and apply per process.
+
+What the page does when things go wrong, each checked by a unit test or by mocked responses in the browser: over the rate limit or daily cap or busy (plain messages, "Try again" button), Gemini quota exhausted or failing (a generic message, never the provider's own text, with the retrieved passages still shown), retrieval failing, the connection dropping mid-answer (partial text kept, message shown), the server unreachable, a request that takes over 120 s, the Stop button, and an answer that abstains (shown with a note). Answer text is built from DOM text nodes (no `innerHTML`), source links are only followed if they are `https://`, and the page is served with a strict Content-Security-Policy.
+
+```bash
+cd rag-service
+DEMO_ENABLED=1 STATS_KEY=<a secret> .venv/bin/python -m uvicorn app.main:app --port 8000   # then open http://localhost:8000/
+curl -H "X-Stats-Key: <the same secret>" "http://localhost:8000/stats?days=30"
+```
+
+**Analytics**, for the owner only. The `events` table (created on first use in the same Postgres) counts page views, distinct visitors, questions, answered, abstained, errors, visitors turned away by a limit, average latency and tokens, per UTC day. It stores no cookies, no question or answer text (only the question's length), no IP address and no third-party script. A visitor is a salted hash of IP, browser string and the UTC day, so the same person looks like a new visitor each day and cannot be looked up. Requests with no browser string or an obvious bot or monitor string are counted separately as bot views. `/stats` is refused unless `STATS_KEY` is set. A failed analytics write is logged and ignored; it never breaks a page or an answer (unit tested).
+
+Limits: this is one process with in-memory guards, so running two copies doubles every cap. Behind a proxy set `TRUST_PROXY_HEADERS=1` so the visitor address is the proxy's last `X-Forwarded-For` entry; without it every visitor behind the proxy would share one address. Free-tier Gemini prompts may be used by Google, which the page says. The page has not been tried in a real mobile browser or screen reader (only an emulated phone width and keyboard checks of the markup).
+
 ## MCP server
 
 `app/mcp_server.py` uses the official Python SDK (`mcp` 2.3.0, `MCPServer`) and speaks stdio, so a client starts it as a subprocess. Tools:
@@ -194,7 +213,7 @@ or, for Claude Desktop, in its `claude_desktop_config.json`:
 
 The database container must be running (`docker compose up -d db`). The first tool call loads the embedding model, which takes a few seconds.
 
-**What has and has not been verified.** `python examples/mcp_client_demo.py` starts the server as a subprocess and calls every tool through the official MCP client over stdio; the output of that run (2026-11-01, real database, real Gemini free-tier call for `ask`) is saved in `rag-service/examples/mcp_transcript_2026-11-01.txt`. I have **not** run it inside Claude Desktop or Claude Code (the `claude` command is not installed on the machine this was built on), so the two registration snippets above are from the Claude Code docs and the SDK, not from a session I watched. Note also that in that transcript the top search result for "does OPT end if I transfer schools" is not the paragraph that answers it (that one is in `ask`'s sources); `search_regulations` is the same retrieval whose hit@1 is 0.82 on the dev set.
+**What has and has not been verified.** `python examples/mcp_client_demo.py` starts the server as a subprocess and calls every tool through the official MCP client over stdio; the output of that run (2026-11-01, real database, real Gemini free-tier call for `ask`) is saved in `rag-service/examples/mcp_transcript_2026-11-01.txt`. On 2026-11-01 I also registered the server in Claude Code 2.1.316 with the command above and called `search_regulations` and `ask` from it; what was pasted from that session is in `rag-service/examples/claude_code_session_2026-11-01.md`. It is Claude Code's replies, not raw tool output, and `get_section` was not called. The first `ask` attempt there failed because `LLM_MODEL` was empty in `.env`; the server hid the cause, which is now fixed and tested. I have **not** tried Claude Desktop; its snippet above is from the SDK and docs. Two weak points seen in these runs: in the stdio transcript the top search result for "does OPT end if I transfer schools" is not the paragraph that answers it (that one is in `ask`'s sources; `search_regulations` is the same retrieval whose hit@1 is 0.82 on the dev set), and citations stop at the section level, e.g. `8 CFR 214.2(f)(10)` for a paragraph that is (E) inside it.
 
 ## Agent (LangGraph)
 
@@ -239,6 +258,21 @@ Where both still fail:
 
 uscis.gov and ice.gov return HTTP 403 to scripted requests. This project does not try to get around that. Pages from those sites can be added by saving them yourself into `data/manual/` (see the README there). Regulation citations are pinned to the top-level paragraph, e.g. `8 CFR 214.2(f)(10) Practical training`; the deeper outline levels ((ii), (E), ...) cannot be recovered reliably from the flat eCFR XML, so they stay in the quoted text and are never guessed into a citation.
 
+## Docker, the corpus snapshot and CI
+
+```bash
+docker compose up -d --build                 # database + service on http://localhost:8000
+DEMO_ENABLED=1 STATS_KEY=<secret> docker compose up -d    # also serve the public page and /stats
+```
+
+Settings are read from the repo-root `.env` (model, keys, `API_KEYS`); the database address is set by the compose file. `docker compose up -d db` still starts only the database for local development; it listens on 127.0.0.1 only. If port 8000 or 5433 is busy, set `API_PORT` or `DB_PORT`. The image is about 1.3 GB because the two ONNX models are downloaded at build time; it runs as a non-root user.
+
+**Corpus snapshot.** `rag-service/snapshot/chunks.jsonl.gz` (about 2 MB, 550 chunks with their embeddings as exact float32) is committed so that a new machine or CI job gets the same corpus without calling eCFR or the Federal Register or running the embedding model. The container loads it on first start when the table is empty (`python -m app.snapshot restore --if-empty`), and it refuses a snapshot made with a different embedding model or size. Regenerate it after a fresh ingest with `python -m app.snapshot dump snapshot/chunks.jsonl.gz`. The text comes from public government documents.
+
+**CI** (`.github/workflows/ci.yml`) has three jobs: the unit tests; a retrieval gate that loads the snapshot into a pgvector service container and fails the build if the default mode's any-source hit@6 drops below **0.90 on the 28-question dev set or below 0.80 on the 11-question held-out set**; and a job that builds the image, starts the stack and checks `/health` reports 550 chunks. The thresholds follow the current numbers (dev 27 of 28 = 0.964, held-out 10 of 11 = 0.909): the gate tolerates one extra miss on the dev set and one on the held-out set (26 of 28 passes, 25 fails; 9 of 11 passes, 8 fails). The gate checks the default mode only. Non-default modes (dense, hybrid) use an approximate index and moved by a few points between the original database and a freshly restored one (dense hit@6 0.89 vs 0.86, hybrid 0.86 vs 0.82), so they are not gated. Retrieval only is gated: answer quality needs a model key and a judge quota, so it stays a manual run.
+
+What was checked and what was not: the dev set gave 0.964 (the same single miss) in every run except one: on the Mac, in fresh restores on the Mac, and four times in the container; the held-out gate gave 0.909 on the Mac and in the container. One earlier container run, straight after the first restore, gave 0.929 on the dev set; I could not reproduce it, including right after a fresh restore, and I do not know the cause. The workflow has **not been run by GitHub Actions** (it needs a push), so the action versions, the model cache and the first run on an x86 runner are untested; a failure there is likely to be a setup detail, not a retrieval regression.
+
 ## Run it
 
 ```bash
@@ -275,4 +309,4 @@ Configuration is environment variables; see `.env.example`. Never commit `.env`.
 | M1 | retrieval slice and retrieval eval | built and tested |
 | M1.5 | answer-quality eval, judge validation, Langfuse tracing, then retrieval and prompt fixes | built and tested; fixes partly re-evaluated |
 | M2 | FastAPI gateway (SSE streaming, API-key auth, rate limit, cost per request), MCP server, LangGraph agent with refusal path | built and tested; agent vs single-shot measured on 10 questions, faithfulness judge step not yet run |
-| M3 | Dockerfiles, GitHub Actions CI with a retrieval-eval gate, AWS deployment | planned |
+| M3 | public chat page and analytics (built, above), Dockerfiles, GitHub Actions CI with a retrieval-eval gate, AWS deployment | page built and tested locally; the rest planned |

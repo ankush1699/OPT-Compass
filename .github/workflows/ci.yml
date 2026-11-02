@@ -1,0 +1,88 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rag-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: rag-service/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
+
+  retrieval-eval:
+    # Fails the build if the default retrieval mode gets worse. Uses the committed corpus snapshot, so it needs no
+    # network access to eCFR or the Federal Register and the numbers do not move when those sources change.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rag-service
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: compass
+          POSTGRES_PASSWORD: compass
+          POSTGRES_DB: compass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U compass -d compass"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://compass:compass@localhost:5432/compass
+      FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.fastembed
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: rag-service/requirements.txt
+      - run: pip install -r requirements.txt
+      - uses: actions/cache@v4
+        with:
+          path: .fastembed
+          key: fastembed-bge-base-en-v1.5-ms-marco-minilm-l6-v1
+      - name: Load the corpus snapshot
+        run: python -m app.snapshot restore
+      - name: Check every answer phrase exists in the corpus
+        run: python -m eval.run_eval --validate
+      - name: Dev set (28 questions), minimum hit@6 0.90
+        run: python -m eval.run_eval --min-hit6 0.90
+      - name: Held-out set (11 questions), minimum hit@6 0.80
+        run: python -m eval.run_eval --heldout --min-hit6 0.80
+
+  docker:
+    # Builds the image and starts the whole stack, then checks the service sees the restored corpus.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up -d --build
+      - name: Wait for /health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/health; then echo; exit 0; fi
+            sleep 5
+          done
+          docker compose logs
+          exit 1
+      - name: The corpus was restored
+        run: curl -fsS http://localhost:8000/health | grep -q '"chunks":550'
+      - run: docker compose down -v
+        if: always()
