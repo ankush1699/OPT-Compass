@@ -13,7 +13,9 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # The service runs as a non-root user that owns the model cache, so the library can update it without errors.
-RUN useradd --system --uid 10001 --no-create-home appuser && mkdir /models && chown appuser /models
+# It needs a writable home directory: the Hugging Face downloader keeps its logs and cache under ~/.cache, and without one
+# the model download failed with "Permission denied" on GitHub Actions.
+RUN useradd --system --uid 10001 --create-home appuser && mkdir /models && chown appuser /models
 USER appuser
 
 # Bake the embedding and rerank models into the image (the names must match EMBED_MODEL and RERANK_MODEL defaults).
