@@ -1,7 +1,8 @@
 # AWS deployment (AWS CLI scripts)
 
-Status: **scripts written and checked with read-only calls and an EC2 dry run; not yet run for real.** Nothing here has
-created a resource. This file is updated with the live URL, the measured cost and the problems found after the first run.
+Status: **deployed and tested on 2026-11-02** (first run of `up.sh` worked without changes). Live URL while it is up:
+`https://d3rqglo679t8bn.cloudfront.net/` (it is deleted with `./down.sh`, so it may not be running when you read this).
+The monthly cost below is still an estimate; no AWS bill exists yet (see "Not done / not verified").
 
 ## What it creates (us-east-1, all tagged `Project=opt-compass`)
 
@@ -52,8 +53,6 @@ CloudFront, a visitor cannot reach the server directly and cannot forge that hea
 - No SSH. To debug, use `./status.sh --log` (EC2 console output) or open a Session Manager or SSH path deliberately.
 - `iam-policy.json` is a narrower policy for the deploy user than `AmazonEC2FullAccess` plus `CloudFrontFullAccess`. **It has
   not been tested yet**: run `./up.sh --check` and a full `up.sh` / `down.sh` cycle with it attached before trusting it.
-- CloudFront does not buffer by itself, but whether the server-sent-event stream arrives token by token through it has to be
-  checked on the live site; it is not claimed here until it has been.
 
 ## Cost control
 
@@ -61,10 +60,30 @@ CloudFront, a visitor cannot reach the server directly and cannot forge that hea
 - `./down.sh` stops all billing for these resources. Stopping the server instead keeps charging for the disk and the IP.
 - The in-memory demo limits (150 questions a day, 4 a minute per visitor) cap use of the free Gemini quota, not AWS cost.
 
-## Not done / not verified
+## What the first real run showed (2026-11-02, us-east-1, `main` at 1722ea6)
 
-- No real run yet: the first `up.sh` may fail on a detail only a real launch shows (for example the security-group rule
-  count for the CloudFront prefix list, or free-plan instance limits; only the EC2 dry run said the launch is allowed).
+All from commands run that day against the live URL:
+- `up.sh` finished with the health check passing (`{"status":"ok","chunks":550}`); the corpus snapshot restored on the server. It
+  needed about 6 to 9 minutes from start to a passing health check (the script's own wait loop printed "still waiting (6 min)" once).
+- The page (`/`) returns 200 with the strict Content-Security-Policy, `nosniff` and `no-referrer` headers; `http://` redirects to
+  `https://`; `/ask` without a key returns 401.
+- The server's Elastic IP does not answer directly (curl on port 80 timed out), so only CloudFront can reach it.
+- A question through `/demo/ask` was answered with cited sources. Time to the first event was 4.2 to 4.3 s on three warm requests
+  (6.5 s on the first, cold request); the answer finished 5.1 to 6.8 s after sending (7.4 s on the cold one). These are four
+  requests from one Mac, not a load test.
+- Streaming: the answer arrived as separate events spread over a few hundred milliseconds (for example 7.1 s, 7.2 s, 7.3 s, 7.4 s),
+  so CloudFront did not hold the whole reply until the end. The model sends only 2 to 5 text chunks per answer, so this is not a
+  fine-grained token-by-token test.
+- An off-topic question ("What is the capital of France?") ended as an abstention. `/stats` with the stats key worked.
+- `HEAD /` returns 405 (the page only answers GET), which matters only for monitors that use HEAD.
+- The analytics table now holds these test events (4 questions, 2 bot views), because there is no way to clear it without
+  server access.
+
+## Not done / not verified
+- **No real bill yet.** Cost Explorer shows spend a day or so later; the figure in this file is an estimate until then.
+
+- `down.sh` has not been run against a real deployment yet, and `iam-policy.json` has not been tried.
+- No load test, no test from a phone, and the server's memory use was measured only locally (about 1.3 GB), not on the server.
 - No HTTPS to the origin (CloudFront to the server is plain HTTP on AWS's network path). Fine for this project, but it is a
   choice, not a default best practice.
 - No domain name, no WAF, no CloudWatch alarms, no backups of the database (it can be rebuilt from `snapshot/`; the analytics
