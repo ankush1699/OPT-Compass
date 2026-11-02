@@ -26,7 +26,7 @@ the current text of **8 CFR 214.2(f)** (eCFR API) and the **STEM OPT final rule,
 | Public chat page (`/`), its own limited endpoint (`/demo/ask`) and own-site analytics (`/stats`) | built and tested (26 tests); used live on localhost on 2026-11-01 (3 real questions through Gemini, the Stats endpoint against the real database, error paths with mocked responses in the browser, a phone-width dark-mode view); not deployed, never load-tested |
 | Dockerfile and `docker compose` for the service + database | built and tested locally: image builds, a fresh volume restores the 550-chunk snapshot and serves the page, `/ask` and a real Gemini answer (2026-11-01, Docker 29.6, linux/arm64 only) |
 | GitHub Actions CI (unit tests, retrieval-eval gate, Docker build and health check) | built and tested: all three jobs passed on GitHub Actions on 2026-11-02 (run 41388757819, 1m46s). The first run failed in the Docker job (the container user had no home directory, so the model download was denied); fixed in commit 04b6c14 |
-| AWS deployment | planned (M3, option A: one small EC2 server running the same compose file) |
+| AWS deployment | scripts written in `deploy/aws/` (EC2 + CloudFront via the AWS CLI, with teardown); checked with an EC2 dry run, **not yet run for real** |
 
 ## What works today
 
